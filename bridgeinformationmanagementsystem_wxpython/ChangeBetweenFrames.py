@@ -1,5 +1,5 @@
 #coding:gbk
-import wx, xlwt, xlrd, os
+import wx, xlwt, xlrd, os, shutil
 import wx.grid as gridlib
 
 class panel_login(wx.Panel):
@@ -50,23 +50,28 @@ class frame_login(wx.Frame):
 class panel_writein(wx.Panel):
     def __init__(self,parent):
         wx.Panel.__init__(self,parent=parent)
-        self.label_1 = wx.StaticText( self, -1, '桥名：',pos = (550,150))
-        self.input_1 = wx.TextCtrl(self, -1,pos = (650,150))
-        self.label_2 = wx.StaticText( self, -1, '检测类型',pos = (550,200))
+        self.label_1 = wx.StaticText( self, -1, '桥名：',pos = (550,50))
+        self.input_1 = wx.TextCtrl(self, -1,pos = (650,50))
+        self.label_2 = wx.StaticText( self, -1, '检测类型',pos = (550,100))
         mylist_1 = ['日常检查','定期检测','特殊检测']
-        self.choice_1 = wx.Choice(self, -1, choices = mylist_1,pos = (650,200),size=(100,50))
-        self.label_3 = wx.StaticText(self,-1,"检测时间", pos=(550,250))
-        self.input_3 = wx.TextCtrl(self, -1, pos = (650,250))
-        self.label_3_5 = wx.StaticText(self,-1,"所属网络", pos=(550,300))
-        self.input_3_5 = wx.TextCtrl(self, -1, pos = (650,300))
-        self.label_4 = wx.StaticText(self,-1,"是否申报维修费：",pos=(550,350))
+        self.choice_1 = wx.Choice(self, -1, choices = mylist_1,pos = (650,100),size=(100,50))
+        self.label_3 = wx.StaticText(self,-1,"检测时间", pos=(550,150))
+        self.input_3 = wx.TextCtrl(self, -1, pos = (650,150))
+        self.label_3_5 = wx.StaticText(self,-1,"所属网络", pos=(550,200))
+        self.input_3_5 = wx.TextCtrl(self, -1, pos = (650,200))
+        self.label_3_rate = wx.StaticText(self,-1,"项目评级", pos=(550,250))
+        self.input_3_rate = wx.TextCtrl(self, -1, pos = (650,250))
+        self.label_3_mainbroken = wx.StaticText(self,-1,"主要问题", pos=(550,300))
+        # self.input_3_mainbroken = wx.TextCtrl(self, -1, pos = (650,300))
+        self.input_3_mainbroken = wx.TextCtrl(self,-1,pos = (650,300),size = (250,80), style=wx.TE_MULTILINE )
+        self.label_4 = wx.StaticText(self,-1,"是否申报维修费：",pos=(550,400))
         mylist_2 = ['是','否']
-        self.choice_2 = wx.Choice(self, -1, choices = mylist_2,pos = (650,350),size=(100,50))
-        self.label_6 = wx.StaticText(self,-1,"申报费用：",pos=(550,400))
-        self.input_6 = wx.TextCtrl(self,-1,pos = (650,400))
-        self.label_5 = wx.StaticText(self,-1,"申报陈述：",pos=(550,450))
-        self.input_5 = wx.TextCtrl(self,-1,pos = (650,450),size = (300,150), style=wx.TE_MULTILINE )
-        self.bt_7 = wx.Button( self , -1,label = "进入详细页" ,pos = (880,620))
+        self.choice_2 = wx.Choice(self, -1, choices = mylist_2,pos = (650,400),size=(100,50))
+        self.label_6 = wx.StaticText(self,-1,"申报费用：",pos=(550,450))
+        self.input_6 = wx.TextCtrl(self,-1,pos = (650,450))
+        self.label_5 = wx.StaticText(self,-1,"申报陈述：",pos=(550,500))
+        self.input_5 = wx.TextCtrl(self,-1,pos = (650,500),size = (250,150), style=wx.TE_MULTILINE )
+        self.bt_7 = wx.Button( self , -1,label = "进入详细页" ,pos = (920,620))
 
 class panel_detail(wx.Panel):
     def __init__(self, parent):
@@ -89,15 +94,18 @@ class frame_depart(wx.Frame):
         self.CreateStatusBar()  # A Statusbar in the bottom of the window
 
         #桥梁信息输入那里有两个界面，有两个函数，导致变量不能共享，故在此初始化。待解决，应该用一个函数，这样占内存小一点
-        self.askmoney,self.reason4askmoney,self.bridgename,self.detecttime,self.detecttype,self.parentWeb = ["","","","","",""]
+        self.routestring,self.mainbroken,self.askmoney,self.reason4askmoney,self.bridgename,self.detecttime,self.detecttype,self.parentWeb,self.bridgerate = ["","","","","","","","",""]
 
         # 顶部的菜单项
         filemenu= wx.Menu()
         upermenu = wx.Menu()
+        helpmenu = wx.Menu()
 
         # 向菜单项添加about与exit两项，中间以横线分割
-        self.bumem_importfiel = filemenu.Append(wx.ID_ADD,"导入","在录入下具体信息录入时才可用")
+        self.bumem_importfiel = filemenu.Append(wx.ID_ADD,"导入excel文件","在录入下的具体信息录入时用于导入excel文件")
         self.bumem_importfiel.Enable(False)
+        self.bumem_importimage = filemenu.Append(wx.ID_FILE,"导入图片","在录入下的具体信息录入时用于导入图像文件")
+        self.bumem_importimage.Enable(False)
         self.bumen_writein = filemenu.Append(wx.ID_ABOUT, "录入"," 正在录入 ")
         self.bumem_search = filemenu.Append(wx.ID_HELP_SEARCH, "项目检索"," 查询项目级桥梁信息 ")
         # filemenu.AppendSeparator()
@@ -105,11 +113,13 @@ class frame_depart(wx.Frame):
         self.uper_givemoney = upermenu.Append(wx.ID_HELP, "预算批示", "批示项目级预算")
         self.uper_webinfosearch = upermenu.Append(wx.ID_HARDDISK,"网级项目检索","网级桥梁信息查询")
         # self.uper_webinfosearch.Enable(False)         #使此菜单项无效
+        self.doctment = helpmenu.Append(wx.ID_ANY,"帮助文档","查看产品说明书")
 
         # 创建菜单栏并且将前面的菜单项捆绑进去
         menuBar = wx.MenuBar()               #创建菜单栏
         menuBar.Append(filemenu,"操作")      #将菜单项"filemenu"放入菜单栏并且取名为。。。
         menuBar.Append(upermenu,"高级")
+        menuBar.Append(helpmenu,"帮助")
         self.SetMenuBar(menuBar)             #将菜单栏放入Frame
 
         self.panelwritein = panel_writein(self)
@@ -155,6 +165,8 @@ class frame_depart(wx.Frame):
         self.detecttype = self.panelwritein.choice_1.GetStringSelection()
         self.detecttime = self.panelwritein.input_3.GetValue()
         self.parentWeb = self.panelwritein.input_3_5.GetValue()
+        self.bridgerate = self.panelwritein.input_3_rate.GetValue()
+        self.mainbroken = self.panelwritein.input_3_mainbroken.GetValue()
         self.askmoney = self.panelwritein.input_6.GetValue()
         self.reason4askmoney = self.panelwritein.input_5.GetValue()
 
@@ -164,12 +176,17 @@ class frame_depart(wx.Frame):
             self.errorlabel_info = wx.StaticText(self.dialogue_info,-1,"\n\n请全部输入\n不能留空",style = wx.ALIGN_CENTER)
             self.dialogue_info.ShowModal()
         else:
+            self.routestring = self.bridgename+self.detecttime+self.detecttype
+            os.makedirs(r"templates\%s"%self.routestring)
+
             self.panelwritein.Hide()
             self.paneldetail.Show()
             self.Layout()
 
             self.bumem_importfiel.Enable(True)
             self.Bind(wx.EVT_MENU,self.importfile, self.bumem_importfiel)
+            self.bumem_importimage.Enable(True)
+            self.Bind(wx.EVT_MENU,self.importimage, self.bumem_importimage)
 
     def submitdetail(self,event):
         # 应该有两个参数x与y来确定输入了一个x*y的数据块
@@ -196,17 +213,22 @@ class frame_depart(wx.Frame):
         sheet1.write(1,1,self.detecttype)
         sheet1.write(2,0,"检测时间".decode("gbk"))
         sheet1.write(2,1,self.detecttime)
-        sheet1.write(3,0,'是否报预算：'.decode("gbk"))
-        sheet1.write(3,1,self.whethermoney)
-        sheet1.write(4,0,"申报费用：".decode("gbk"))
-        sheet1.write(4,1,self.askmoney)
-        sheet1.write(5,0,"申报陈述".decode("gbk"))
-        sheet1.write(5,1,self.reason4askmoney)
+        sheet1.write(3,0,"项目评级".decode("gbk"))
+        sheet1.write(3,1,self.bridgerate)
+        sheet1.write(4,0,"主要问题".decode("gbk"))
+        sheet1.write(4,1,self.mainbroken)
+        sheet1.write(5,0,'是否报预算：'.decode("gbk"))
+        sheet1.write(5,1,self.whethermoney)
+        sheet1.write(6,0,"申报费用：".decode("gbk"))
+        sheet1.write(6,1,self.askmoney)
+        sheet1.write(7,0,"申报陈述".decode("gbk"))
+        sheet1.write(7,1,self.reason4askmoney)
         for i in range(rowflag):
             for j in range(columnflag):
-                sheet1.write(i+8,j,self.paneldetail.griddetail.GetCellValue(i,j))
+                sheet1.write(i+10,j,self.paneldetail.griddetail.GetCellValue(i,j))
         # 保存该excel文件,有同名文件时直接覆盖
-        workbook.save(r'templates\%s.xls'%(self.bridgename+self.detecttime))
+
+        workbook.save(r'templates\%s\%s.xls'%(self.routestring,self.routestring))
         print '创建excel文件完成'
 
     def importfile(self,event):
@@ -243,6 +265,19 @@ class frame_depart(wx.Frame):
             for coln in range(num_cols):
                 cell = worksheet1.cell_value(rown,coln)
                 self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+
+    def importimage(self,event):
+        #接入打开文件窗口，导入excel文件路径接口
+        self.dirname = ''
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+        if dlg.ShowModal() == wx.ID_OK:
+            self.filename = dlg.GetFilename()
+            self.dirname = dlg.GetDirectory()
+            self.absoluteimageroute = self.dirname+'\\'+self.filename           #返回打开文件的绝对路径
+        dlg.Destroy()
+
+        shutil.copyfile(self.absoluteimageroute,r"templates\%s\%s"%(self.routestring,self.filename))
+
 
 
 
