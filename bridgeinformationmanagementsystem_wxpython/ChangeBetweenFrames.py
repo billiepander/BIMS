@@ -1,5 +1,5 @@
 #coding:gbk
-import wx, xlwt
+import wx, xlwt, xlrd, os
 import wx.grid as gridlib
 
 class panel_login(wx.Panel):
@@ -96,6 +96,8 @@ class frame_depart(wx.Frame):
         upermenu = wx.Menu()
 
         # 向菜单项添加about与exit两项，中间以横线分割
+        self.bumem_importfiel = filemenu.Append(wx.ID_ADD,"导入","在录入下具体信息录入时才可用")
+        self.bumem_importfiel.Enable(False)
         self.bumen_writein = filemenu.Append(wx.ID_ABOUT, "录入"," 正在录入 ")
         self.bumem_search = filemenu.Append(wx.ID_HELP_SEARCH, "项目检索"," 查询项目级桥梁信息 ")
         # filemenu.AppendSeparator()
@@ -123,6 +125,7 @@ class frame_depart(wx.Frame):
         self.SetSizer(self.sizer)
 
         self.Bind(wx.EVT_MENU,self.writein, self.bumen_writein)
+
         # self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
 
         self.panelwritein.choice_2.Bind( wx.EVT_CHOICE,self.choice4money )
@@ -165,6 +168,9 @@ class frame_depart(wx.Frame):
             self.paneldetail.Show()
             self.Layout()
 
+            self.bumem_importfiel.Enable(True)
+            self.Bind(wx.EVT_MENU,self.importfile, self.bumem_importfiel)
+
     def submitdetail(self,event):
         # 应该有两个参数x与y来确定输入了一个x*y的数据块
         # if self.paneldetail.griddetail.GetCellValue(3,3) is None:           #GetValue出来的是unicode
@@ -199,11 +205,44 @@ class frame_depart(wx.Frame):
         for i in range(rowflag):
             for j in range(columnflag):
                 sheet1.write(i+8,j,self.paneldetail.griddetail.GetCellValue(i,j))
-            # 保存该excel文件,有同名文件时直接覆盖
+        # 保存该excel文件,有同名文件时直接覆盖
         workbook.save(r'templates\%s.xls'%(self.bridgename+self.detecttime))
         print '创建excel文件完成'
 
+    def importfile(self,event):
+        #接入打开文件窗口，导入excel文件路径接口
+        self.dirname = ''
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+        if dlg.ShowModal() == wx.ID_OK:
+            self.filename = dlg.GetFilename()
+            self.dirname = dlg.GetDirectory()
+            self.absolutefileroute = self.dirname+'\\'+self.filename           #返回打开文件的绝对路径
+        dlg.Destroy()
 
+        #下面是导入excel到grid中
+            #打开一个workbook
+        workbook = xlrd.open_workbook(self.absolutefileroute)
+        # workbook = xlrd.open_workbook(r'templates\test1.xls')
+            #抓取所有sheet页的名称
+        worksheets = workbook.sheet_names()
+        # print('worksheets is %s' %worksheets)
+            #定位到sheet1
+        worksheet1 = workbook.sheet_by_name(u'sheet1')
+            #遍历sheet1中所有行row
+        num_rows = worksheet1.nrows
+        for curr_row in range(num_rows):
+            row = worksheet1.row_values(curr_row)
+            # print('row%s is %s' %(curr_row,row))
+            #遍历sheet1中所有列col
+        num_cols = worksheet1.ncols
+        for curr_col in range(num_cols):
+            col = worksheet1.col_values(curr_col)
+            # print('col%s is %s' %(curr_col,col))
+            #遍历sheet1中所有单元格cell
+        for rown in range(num_rows):
+            for coln in range(num_cols):
+                cell = worksheet1.cell_value(rown,coln)
+                self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
 
 
 
@@ -211,4 +250,3 @@ app = wx.App()
 frame1 = frame_login()
 frame1.Show()
 app.MainLoop()
-
