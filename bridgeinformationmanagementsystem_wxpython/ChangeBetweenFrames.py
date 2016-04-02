@@ -1,6 +1,33 @@
 #coding:gbk
-import wx, xlwt, xlrd, os, shutil
+import wx, xlwt, xlrd, os, shutil, MySQLdb, chardet
 import wx.grid as gridlib
+#数据库装饰器
+def conclos(**kwargs):
+    def ifunc(func):
+        def infunc(sql):
+            conn = MySQLdb.Connect(
+                host=kwargs['host'],
+                port = kwargs['port'],
+                user = kwargs['user'],
+                passwd = kwargs['passwd'],
+                db = kwargs['db'],
+                charset = kwargs['charset'],
+            )
+            cursor = conn.cursor()
+            result = func(cursor,sql)
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return result
+        return infunc
+    return ifunc
+
+@conclos(host='127.0.0.1',port = 3306,user = 'root',passwd = 'punkisdead',db = 'bims',charset = 'utf8',)
+def exe(cursor,sql):
+    cursor.execute(sql)
+    outcatch = cursor.fetchall()
+    return outcatch
+
 
 class panel_login(wx.Panel):
     def __init__(self,parent):
@@ -87,6 +114,41 @@ class panel_detail(wx.Panel):
 
         self.SetSizer(sizer)
 
+class panel_search(wx.Panel):
+    def __init__(self,parent):
+        wx.Panel.__init__(self,parent=parent)
+        self.label_1 = wx.StaticText( self, -1, '桥名：',pos = (550,250))
+        self.input_1 = wx.TextCtrl(self, -1,pos = (650,250))
+        self.label_2 = wx.StaticText( self, -1, '检测类型',pos = (550,300))
+        mylist_1 = ['日常检查','定期检测','特殊检测']
+        self.choice_1 = wx.Choice(self, -1, choices = mylist_1,pos = (650,300),size=(100,50))
+        self.label_3 = wx.StaticText(self,-1,"检测时间", pos=(550,350))
+        self.input_3 = wx.TextCtrl(self, -1, pos = (650,350))
+        self.label_4 = wx.StaticText(self,-1,"时间可以为空，也可以输入年，输入到月，输入到天，如2016-04-01", pos=(650,400))
+        self.bt = wx.Button( self , -1,label = "搜索" ,pos = (800,450))
+
+class panel_searchResultShow(wx.Panel):
+    def __init__(self,parent,amount=0):
+        wx.Panel.__init__(self,parent=parent)
+        self.griddetail = gridlib.Grid(self)
+        self.griddetail.CreateGrid(20,5,)
+        self.subbtn = wx.Button(self,-1,label = "查看详细信息")
+        self.subbtn.SetBackgroundColour("black")
+        self.subbtn.SetForegroundColour("white")
+        # self.info = wx.StaticText(self,-1,"共有%d条数据，现在是第%d条")
+        self.numinfo = wx.StaticText(self,-1,"一共有%d条相关数据"%amount)
+        self.advicenum = wx.StaticText(self,-1,"在下面输入要跳转到的条数")
+        # self.numinfo2 = wx.StaticText(self,-1,"跳转到")
+        self.which2see = wx.TextCtrl(self, -1, value="1")
+        # self.numinfo3 = wx.StaticText(self,-1,"条")
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.subbtn, 0, wx.CENTER)
+        sizer.Add(self.griddetail, 0,wx.CENTER)
+        sizer.Add(self.numinfo, 0, wx.CENTER)
+        sizer.Add(self.advicenum, 0, wx.CENTER)
+        sizer.Add(self.which2see, 0, wx.CENTER)
+        self.SetSizer(sizer)
+
 
 class frame_depart(wx.Frame):
     def __init__(self):
@@ -95,6 +157,8 @@ class frame_depart(wx.Frame):
 
         #桥梁信息输入那里有两个界面，有两个函数，导致变量不能共享，故在此初始化。待解决，应该用一个函数，这样占内存小一点
         self.routestring,self.mainbroken,self.askmoney,self.reason4askmoney,self.bridgename,self.detecttime,self.detecttype,self.parentWeb,self.bridgerate = ["","","","","","","","",""]
+
+        self.search_bridgename,self.search_detecttype,self.search_detectime,self.result = ["","","",""]
 
         # 顶部的菜单项
         filemenu= wx.Menu()
@@ -126,22 +190,30 @@ class frame_depart(wx.Frame):
         self.panelwritein.Hide()
         self.paneldetail = panel_detail(self)
         self.paneldetail.Hide()
+        self.panelsearch = panel_search(self)
+        self.panelsearch.Hide()
+        # self.panelshowsearchresult = panel_searchResultShow(self)
+        # self.panelshowsearchresult.Hide()
 
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         # self.sizer.Add(self.panelbumen, 1, wx.EXPAND)
         self.sizer.Add(self.panelwritein, 1, wx.EXPAND)
         self.sizer.Add(self.paneldetail, 1 , wx.EXPAND)
+        self.sizer.Add(self.panelsearch, 1 , wx.EXPAND)
+        # self.sizer.Add(self.panelshowsearchresult, 1 , wx.EXPAND)
         self.SetSizer(self.sizer)
 
         self.Bind(wx.EVT_MENU,self.writein, self.bumen_writein)
+        self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
 
         # self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
-
+        #输入页下拉框以及按钮的事件绑定
         self.panelwritein.choice_2.Bind( wx.EVT_CHOICE,self.choice4money )
         self.panelwritein.bt_7.Bind( wx.EVT_BUTTON,self.detailinfo )
-
         self.paneldetail.subbtn.Bind(wx.EVT_BUTTON,self.submitdetail)
+        #项目搜索页的事件绑定
+        self.panelsearch.bt.Bind(wx.EVT_BUTTON,self.submitsearch)
 
     def writein(self , event):
         self.panelwritein.Show()
@@ -170,6 +242,7 @@ class frame_depart(wx.Frame):
         self.askmoney = self.panelwritein.input_6.GetValue()
         self.reason4askmoney = self.panelwritein.input_5.GetValue()
 
+
         print type(self.askmoney),self.reason4askmoney,self.bridgename,type(self.detecttime),self.detecttype,self.parentWeb
         if self.bridgename=="" or self.detecttime=="" or self.detecttype == u"" or self.parentWeb=="":
             self.dialogue_info = wx.Dialog(self,-1,"提示框",size = (300,150),pos=(600,300))
@@ -177,7 +250,8 @@ class frame_depart(wx.Frame):
             self.dialogue_info.ShowModal()
         else:
             self.routestring = self.bridgename+self.detecttime+self.detecttype
-            os.makedirs(r"templates\%s"%self.routestring)
+            print hash(self.routestring)
+            os.makedirs(r"templates\%d"%abs(hash(self.routestring)))
 
             self.panelwritein.Hide()
             self.paneldetail.Show()
@@ -227,9 +301,27 @@ class frame_depart(wx.Frame):
             for j in range(columnflag):
                 sheet1.write(i+10,j,self.paneldetail.griddetail.GetCellValue(i,j))
         # 保存该excel文件,有同名文件时直接覆盖
+        workbook.save(r'templates\%s\%s.xls'%(abs(hash(self.routestring)),self.routestring))
 
-        workbook.save(r'templates\%s\%s.xls'%(self.routestring,self.routestring))
-        print '创建excel文件完成'
+        #插入数据库
+        db = MySQLdb.connect("localhost","root","punkisdead","bims",charset="utf8" )
+            # 使用cursor()方法获取操作游标
+        cursor = db.cursor()
+            # SQL 插入语句
+        sql = "INSERT INTO bridgeinfo VALUES ('%s', '%s', '%s', '%s', '%s','%s','%s','%s','%s','%s','%s' )" % (self.bridgename, self.detecttype, self.detecttime, self.parentWeb, self.bridgerate,self.mainbroken,self.whethermoney,self.askmoney,self.reason4askmoney,"waiting",str(abs(hash(self.routestring))))
+        try:
+           # 执行sql语句
+           print "进入了提交页"
+           cursor.execute(sql)
+           # 提交到数据库执行
+           db.commit()
+        except:
+           # Rollback in case there is any error
+           db.rollback()
+           print "没能提交成功"
+            # 关闭数据库连接
+        db.close()
+
 
     def importfile(self,event):
         #接入打开文件窗口，导入excel文件路径接口
@@ -276,7 +368,104 @@ class frame_depart(wx.Frame):
             self.absoluteimageroute = self.dirname+'\\'+self.filename           #返回打开文件的绝对路径
         dlg.Destroy()
 
-        shutil.copyfile(self.absoluteimageroute,r"templates\%s\%s"%(self.routestring,self.filename))
+        shutil.copyfile(self.absoluteimageroute,r"templates\%s\%s"%(abs(hash(self.routestring)),self.filename))
+
+    def search(self,event):
+        # self.dialogue_info = wx.Dialog(self,-1,"提示框",size = (300,150),pos=(600,300))
+        # self.dialogue_info.Show()
+        self.panelsearch.Show()
+        self.Layout()
+
+    def submitsearch(self,event):
+        self.search_bridgename = self.panelsearch.input_1.GetValue()
+        self.search_detecttype = self.panelsearch.choice_1.GetStringSelection()
+        self.search_detectime = self.panelsearch.input_3.GetValue()
+        # search = "select * from bridgeinfo "
+        if self.search_bridgename == "" or self.search_detecttype == "":
+            self.dialogue_info = wx.Dialog(self,-1,"提示框",size = (300,150),pos=(600,300))
+            self.errorlabel_info = wx.StaticText(self.dialogue_info,-1,"\n\n桥名和检测类型\n不能留空",style = wx.ALIGN_CENTER)
+            self.dialogue_info.ShowModal()
+        if self.search_detectime == "":
+            # self.dicthelp = {"日常检查":"normal","定期检测":"regular","特殊检测":"special"}
+            search = "select * from bridgeinfo WHERE BridgeName = '%s' AND DetectType = '%s' AND detecttime LIKE '%s%%'" % (self.search_bridgename,self.search_detecttype,self.search_detectime)
+        else:
+            search = "select * from bridgeinfo WHERE BridgeName = '%s' AND DetectType = '%s'"%(self.search_bridgename,self.detecttype)
+        self.result = exe(search)
+        if not self.result:
+            self.dialogue_info = wx.Dialog(self,-1,"提示框",size = (300,150),pos=(600,300))
+            self.errorlabel_info = wx.StaticText(self.dialogue_info,-1,"\n\n并没有相关数据\n请检查输入",style = wx.ALIGN_CENTER)
+            self.dialogue_info.ShowModal()
+        else:
+            self.panelshowsearchresult = panel_searchResultShow(self,len(self.result))
+            self.panelshowsearchresult.Hide()
+            self.sizer.Add(self.panelshowsearchresult, 1 , wx.EXPAND)
+            self.panelsearch.Hide()
+            self.panelshowsearchresult.Show()
+            self.Layout()
+
+
+            self.transferTo = self.panelshowsearchresult.which2see.GetValue()
+            self.dbpara = ['桥名','检测类型','检测时间','所属网络','项目评级','主要问题','是否申报维修费','申报费用','申报陈述','申报进度']
+            try:
+                int(self.transferTo)
+                self.rank = int(self.transferTo) - 1
+            except:
+                self.rank = 0
+
+            self.infoaboutnum = wx.StaticText(self,-1,"这是第%d条数据"%(self.rank+1), pos=(650,550))
+
+            for i in range(10):
+                # if i == 2:
+                #     self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                #     self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i].strftime('%Y-%m-%d'))
+                if not self.result[self.rank][i]:
+                    self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                    self.panelshowsearchresult.griddetail.SetCellValue(i,1,"")
+                elif not isinstance(self.result[self.rank][i],unicode):
+                    self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                    self.panelshowsearchresult.griddetail.SetCellValue(i,1,str(self.result[self.rank][i]))
+                else:
+                    self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                    self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i])
+
+
+            self.Bind(wx.EVT_TEXT,self.OnEnter,self.panelshowsearchresult.which2see)
+            self.Bind(wx.EVT_BUTTON,self.SeeDetailSearchResult,self.panelshowsearchresult.subbtn)
+
+    def OnEnter(self,event):
+        self.transferTo = self.panelshowsearchresult.which2see.GetValue()
+        self.dbpara = ['桥名','检测类型','检测时间','所属网络','项目评级','主要问题','是否申报维修费','申报费用','申报陈述','申报进度']
+        try:
+            int(self.transferTo)
+            self.rank = int(self.transferTo) - 1
+        except:
+            self.rank = 0
+
+        self.infoaboutnum = wx.StaticText(self,-1,"这是第%d条数据"%(self.rank+1), pos=(650,550))
+
+        for i in range(10):
+            # if i == 2:
+            #     self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+            #     self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i].strftime('%Y-%m-%d'))
+            if not self.result[self.rank][i]:
+                self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                self.panelshowsearchresult.griddetail.SetCellValue(i,1,"")
+            elif not isinstance(self.result[self.rank][i],unicode):
+                self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                self.panelshowsearchresult.griddetail.SetCellValue(i,1,str(self.result[self.rank][i]))
+            else:
+                self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+                self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i])
+
+    def SeeDetailSearchResult(self,event):
+        self.detailNum = int(self.panelshowsearchresult.which2see.GetValue())
+        # print type(self.result[self.detailNum-1][10])
+        # print self.result[self.detailNum-1][10]
+        # print self.result[self.detailNum-1][10]
+        # print chardet.detect(self.result[self.detailNum-1][10])
+        os.startfile( os.getcwd()+"\\templates\\"+ self.result[self.detailNum-1][10])
+        # os.startfile( os.getcwd()+"\\templates")
+
 
 
 
