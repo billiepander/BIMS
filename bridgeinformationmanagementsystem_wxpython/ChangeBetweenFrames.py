@@ -34,7 +34,7 @@ class panel_login(wx.Panel):
         wx.Panel.__init__(self,parent=parent)
         self.gs = wx.GridSizer(4,2,5,5)
         self.label_1 = wx.StaticText( self, -1, 'login as:')
-        mylist = ['sheng','shi','bumen','visitor']
+        mylist = ['省级','市级','检测部门','访客']
         self.choice = wx.Choice(self, -1, choices = mylist,)
         self.label_2 = wx.StaticText(self,-1,"name:")
         self.input_2 = wx.TextCtrl(self, -1)
@@ -57,14 +57,14 @@ class frame_login(wx.Frame):
 
     def OnCheck(self,event):
         self.ID = self.login.choice.GetStringSelection()
-        if self.ID == "visitor":
+        if self.ID == u"访客":
             self.login.input_2.SetValue("visitor")
             self.login.input_3.SetValue("123")
 
     def OnButton(self,event):
         self.name = str(self.login.input_2.GetValue())
         self.passwd = str(self.login.input_3.GetValue())
-        if self.name == "bumen" and self.passwd == "123" and self.ID == "bumen":
+        if self.name == "bumen" and self.passwd == "123" and self.ID == u"检测部门":
             depart = frame_depart()
             self.Hide()
             depart.Show()
@@ -263,6 +263,11 @@ class frame_depart(wx.Frame):
         self.panelsearch.bt.Bind(wx.EVT_BUTTON,self.submitsearch)
 
     def writein(self , event):
+        self.panelsearch.Hide()
+        try:
+            self.panelMoneyTable.Hide()
+        except:
+            pass
         self.panelwritein.Show()
         self.Layout()
 
@@ -412,6 +417,11 @@ class frame_depart(wx.Frame):
     def search(self,event):
         # self.dialogue_info = wx.Dialog(self,-1,"提示框",size = (300,150),pos=(600,300))
         # self.dialogue_info.Show()
+        try:
+            self.panelMoneyTable.Hide()
+        except:
+            pass
+        self.panelwritein.Hide()
         self.panelsearch.Show()
         self.Layout()
 
@@ -502,11 +512,16 @@ class frame_depart(wx.Frame):
 
     def ratifyitemmoney(self,event):
         #此地有个问题待解决的是如果是从别的界面跳转到这儿，需要先关闭先前页面
+        try:
+            self.panelMoneyTable.Hide()
+        except:
+            pass
         search = "select * from bridgeinfo WHERE WhetherDeclare = '%s' ORDER BY DetectTime"%u"是"
         self.result_money = exe(search)
-        print self.result_money
         self.panelMoneyTable = panel_MoneyTable(self,self.result_money)
         self.sizer.Add(self.panelMoneyTable, 1 , wx.EXPAND)
+        self.panelsearch.Hide()
+        self.panelwritein.Hide()
         self.panelMoneyTable.Show()
         self.Layout()
 
