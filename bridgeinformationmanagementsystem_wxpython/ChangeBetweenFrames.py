@@ -149,6 +149,50 @@ class panel_searchResultShow(wx.Panel):
         sizer.Add(self.which2see, 0, wx.CENTER)
         self.SetSizer(sizer)
 
+class panel_MoneyTable(wx.Panel):
+    def __init__(self, parent,result):
+        self.result = result
+        wx.Panel.__init__(self, parent=parent)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        for i in range(len(result)):
+            self.griddetail = gridlib.Grid(self)
+            self.griddetail.CreateGrid(1,3)
+            # self.griddetail.SetRowAttr("colAtr")
+            self.griddetail.SetRowLabelValue(0,str(i+1))
+            self.griddetail.SetColLabelValue(0,"桥名".decode("gbk"))
+            self.griddetail.SetColLabelValue(1,"申报费".decode("gbk"))
+            self.griddetail.SetColLabelValue(2,"申报陈述".decode("gbk"))
+            self.griddetail.SetCellValue(0,0,result[i][0])
+            self.griddetail.SetCellValue(0,1,result[i][7])
+            self.griddetail.SetCellValue(0,2,result[i][8])
+            mylist = ['批准','驳回']
+            self.choice = wx.Choice(self, -1, choices = mylist,pos = (650,300),size=(100,50),name = "第%d条申报信息"%i)
+            self.choice.Bind(wx.EVT_CHOICE, lambda evt,mark=i,choice=self.choice:self.changewhichone(evt,mark,choice))
+            # print self.choice.Name        #可获得每个下拉框的name值
+            sizer1 = wx.BoxSizer(wx.HORIZONTAL)
+            sizer1.Add(self.griddetail, 0, wx.EXPAND)
+            sizer1.Add(self.choice, 0, wx.EXPAND)
+            sizer.Add(sizer1,0,wx.CENTER)
+
+        self.SetSizer(sizer)
+
+
+    def changewhichone(self,event,mark,choice):
+        print mark
+        print self.result[mark][10]
+        self.ratifyresult = choice.GetStringSelection()
+
+        #用户改变批准条件后同步到数据库
+        db = MySQLdb.connect("localhost","root","punkisdead","BIMS", charset = "utf8")
+        cursor = db.cursor()
+        sql = "UPDATE bridgeinfo SET DeclareProgress = '%s' WHERE FileRoute = '%s'" % (self.ratifyresult,self.result[mark][10])
+        try:
+           cursor.execute(sql)
+           db.commit()
+        except:
+           db.rollback()
+        db.close()
+
 
 class frame_depart(wx.Frame):
     def __init__(self):
@@ -174,7 +218,8 @@ class frame_depart(wx.Frame):
         self.bumem_search = filemenu.Append(wx.ID_HELP_SEARCH, "项目检索"," 查询项目级桥梁信息 ")
         # filemenu.AppendSeparator()
         # self.bumen_exit = filemenu.Append(wx.ID_EXIT,"E&xit"," 退出程序 ")
-        self.uper_givemoney = upermenu.Append(wx.ID_HELP, "预算批示", "批示项目级预算")
+        self.uper_givemoney = upermenu.Append(wx.ID_HELP, "单项预算表查看与批示", "单项预算表查看与批示")
+        self.uper_ratifyWebMoney = upermenu.Append(wx.ID_APPLY,"网级预算查看与批示","网级预算查看与批示")
         self.uper_webinfosearch = upermenu.Append(wx.ID_HARDDISK,"网级项目检索","网级桥梁信息查询")
         # self.uper_webinfosearch.Enable(False)         #使此菜单项无效
         self.doctment = helpmenu.Append(wx.ID_ANY,"帮助文档","查看产品说明书")
@@ -204,8 +249,10 @@ class frame_depart(wx.Frame):
         # self.sizer.Add(self.panelshowsearchresult, 1 , wx.EXPAND)
         self.SetSizer(self.sizer)
 
+        #绑定菜单事件
         self.Bind(wx.EVT_MENU,self.writein, self.bumen_writein)
         self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
+        self.Bind(wx.EVT_MENU,self.ratifyitemmoney, self.uper_givemoney)
 
         # self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
         #输入页下拉框以及按钮的事件绑定
@@ -305,21 +352,13 @@ class frame_depart(wx.Frame):
 
         #插入数据库
         db = MySQLdb.connect("localhost","root","punkisdead","bims",charset="utf8" )
-            # 使用cursor()方法获取操作游标
         cursor = db.cursor()
-            # SQL 插入语句
         sql = "INSERT INTO bridgeinfo VALUES ('%s', '%s', '%s', '%s', '%s','%s','%s','%s','%s','%s','%s' )" % (self.bridgename, self.detecttype, self.detecttime, self.parentWeb, self.bridgerate,self.mainbroken,self.whethermoney,self.askmoney,self.reason4askmoney,"waiting",str(abs(hash(self.routestring))))
         try:
-           # 执行sql语句
-           print "进入了提交页"
            cursor.execute(sql)
-           # 提交到数据库执行
            db.commit()
         except:
-           # Rollback in case there is any error
            db.rollback()
-           print "没能提交成功"
-            # 关闭数据库连接
         db.close()
 
 
@@ -459,16 +498,17 @@ class frame_depart(wx.Frame):
 
     def SeeDetailSearchResult(self,event):
         self.detailNum = int(self.panelshowsearchresult.which2see.GetValue())
-        # print type(self.result[self.detailNum-1][10])
-        # print self.result[self.detailNum-1][10]
-        # print self.result[self.detailNum-1][10]
-        # print chardet.detect(self.result[self.detailNum-1][10])
         os.startfile( os.getcwd()+"\\templates\\"+ self.result[self.detailNum-1][10])
-        # os.startfile( os.getcwd()+"\\templates")
 
-
-
-
+    def ratifyitemmoney(self,event):
+        #此地有个问题待解决的是如果是从别的界面跳转到这儿，需要先关闭先前页面
+        search = "select * from bridgeinfo WHERE WhetherDeclare = '%s' ORDER BY DetectTime"%u"是"
+        self.result_money = exe(search)
+        print self.result_money
+        self.panelMoneyTable = panel_MoneyTable(self,self.result_money)
+        self.sizer.Add(self.panelMoneyTable, 1 , wx.EXPAND)
+        self.panelMoneyTable.Show()
+        self.Layout()
 
 app = wx.App()
 frame1 = frame_login()
