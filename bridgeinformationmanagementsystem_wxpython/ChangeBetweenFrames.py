@@ -1,6 +1,10 @@
 #coding:gbk
-import wx, xlwt, xlrd, os, shutil, MySQLdb, chardet
+import wx, xlwt, xlrd, os, shutil, MySQLdb, chardet, time, threading
 import wx.grid as gridlib
+import numpy as np
+from matplotlib.font_manager import FontProperties
+import matplotlib.pyplot as plt
+font = FontProperties(fname=r"c:\windows\Fonts\simsun.ttc",size=11)
 #数据库装饰器
 def conclos(**kwargs):
     def ifunc(func):
@@ -132,6 +136,9 @@ class panel_searchResultShow(wx.Panel):
         wx.Panel.__init__(self,parent=parent)
         self.griddetail = gridlib.Grid(self)
         self.griddetail.CreateGrid(20,5,)
+        self.griddetail.SetColSize(1,300)
+        self.griddetail.SetColSize(0,100)
+        # self.griddetail.SetRowSize(0,50)
         self.subbtn = wx.Button(self,-1,label = "查看详细信息")
         self.subbtn.SetBackgroundColour("black")
         self.subbtn.SetForegroundColour("white")
@@ -159,7 +166,10 @@ class panel_MoneyTable(wx.Panel):
         for i in range(len(result)):
             self.griddetail = gridlib.Grid(self)
             self.griddetail.CreateGrid(1,3)
+            self.griddetail.SetDefaultCellOverflow(False)
             # self.griddetail.SetRowAttr("colAtr")
+            self.griddetail.SetColSize(2,300)
+            self.griddetail.SetRowSize(0,50)
             self.griddetail.SetRowLabelValue(0,str(i+1))
             self.griddetail.SetColLabelValue(0,"桥名".decode("gbk"))
             self.griddetail.SetColLabelValue(1,"申报费".decode("gbk"))
@@ -206,6 +216,10 @@ class panel_RatifyWebMoney(wx.Panel):
         for i in range(len(self.result)):
             self.griddetail = gridlib.Grid(self)
             self.griddetail.CreateGrid(1,3)
+            self.griddetail.SetColSize(2,200)
+            self.griddetail.SetColSize(0,100)
+            self.griddetail.SetColSize(1,150)
+            self.griddetail.SetRowSize(0,25)
             # self.griddetail.SetRowAttr("colAtr")
             self.griddetail.SetRowLabelValue(0,str(i+1))
             self.griddetail.SetColLabelValue(0,"网络名".decode("gbk"))
@@ -245,9 +259,67 @@ class panel_RatifyWebMoney(wx.Panel):
            db.rollback()
         db.close()
 
+class panel_WebSituation(wx.Panel):
+    def __init__(self,parent):
+        wx.Panel.__init__(self,parent=parent)
+        searchWebName = "select FatherWeb from bridgeinfo GROUP by FatherWeb"
+        WebNames = exe(searchWebName)
+        mylist=[]
+        for i in WebNames:
+            for j in i:
+                mylist.append(j)
+        self.choice = wx.Choice(self, -1, choices = mylist,size=(100,30),pos = (680,90))
+        self.choice.Bind(wx.EVT_CHOICE,self.ChooseWeb)
+
+    def ChooseWeb(self,event):
+        self.WebName = self.choice.GetStringSelection()
+        self.image = wx.Image(".\\templates\\%s.png"%abs(hash(self.WebName)))
+        self.sb = wx.StaticBitmap(self,-1,wx.BitmapFromImage(self.image),pos=(500,120))
+
+class panel_ItemSituation(wx.Panel):
+    def __init__(self,parent):
+        wx.Panel.__init__(self,parent=parent)
+        self.input = wx.TextCtrl(self,-1,pos=(580,40))
+        self.btn = wx.Button(self,-1,label="查询",pos=(690,37))
+        self.input.SetValue(u'输入桥名')
+        self.btn.Bind(wx.EVT_BUTTON, self.SearchItem)
+        # sizer1 = wx.BoxSizer(wx.HORIZONTAL)
+        # sizer1.Add(self.input, 0, wx.Center)
+        # sizer1.Add(self.btn, 0, wx.Center)
+        # self.SetSizer(sizer1)
+
+    def SearchItem(self,event):
+        self.bridgeName = self.input.GetValue()
+        t=threading.Thread(target=self.Ready)
+        # t=threading.Thread(target=self.Ready,args=self.bridgeName)
+        t.start()
+    def Ready(self):
+        self.search = "select BridgeName,QualityLevel,DetectTime from bridgeinfo WHERE BridgeName='%s' ORDER BY DetectTime"%u"西直门大桥"
+        self.result = exe(self.search)
+
+        changeBridge={u'A':4,u"B":3,u'C':2,u'D':1}
+        x = []
+        y = []
+        for i in range(len(self.result)):
+            y.append(changeBridge[self.result[i][1]])
+            x.append(i+1)
+
+        print x,y
+        plt.plot(x,y,"k-",label="range",color="red")
+        plt.title(self.result[0][0],size=16,fontproperties=font)
+        plt.axis([0,len(x)+1,0,6])
+        plt.xticks( np.arange(len(x)), ['0']+[z[2] for z in self.result ] )
+        plt.yticks( np.arange(5), ('0','D', 'C', 'B', 'A') )
+        # plt.show()
+        plt.savefig("templates//littletry.png")
+        plt.close()
+
+
 class frame_depart(wx.Frame):
     def __init__(self):
         wx.Frame.__init__(self,None, title = "桥梁信息管理系统")
+        t = threading.Thread(target=self.yubeidui)
+        t.start()
         self.CreateStatusBar()  # A Statusbar in the bottom of the window
 
         #桥梁信息输入那里有两个界面，有两个函数，导致变量不能共享，故在此初始化。待解决，应该用一个函数，这样占内存小一点
@@ -269,6 +341,7 @@ class frame_depart(wx.Frame):
         self.bumem_search = filemenu.Append(wx.ID_HELP_SEARCH, "项目检索"," 查询项目级桥梁信息 ")
         # filemenu.AppendSeparator()
         # self.bumen_exit = filemenu.Append(wx.ID_EXIT,"E&xit"," 退出程序 ")
+        self.uper_SearchItemHis = upermenu.Append(wx.ID_EDIT, "单项桥梁历史纪录", "查看单项桥梁随各时间的质量变化")
         self.uper_givemoney = upermenu.Append(wx.ID_HELP, "单项预算表查看与批示", "单项预算表查看与批示")
         self.uper_ratifyWebMoney = upermenu.Append(wx.ID_APPLY,"网级预算查看与批示","网级预算查看与批示")
         self.uper_webinfosearch = upermenu.Append(wx.ID_HARDDISK,"网级项目检索","网级桥梁信息查询")
@@ -303,8 +376,10 @@ class frame_depart(wx.Frame):
         #绑定菜单事件
         self.Bind(wx.EVT_MENU,self.writein, self.bumen_writein)
         self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
+        self.Bind(wx.EVT_MENU,self.searchitemhis, self.uper_SearchItemHis)
         self.Bind(wx.EVT_MENU,self.ratifyitemmoney, self.uper_givemoney)
         self.Bind(wx.EVT_MENU,self.ratifyWebMoney, self.uper_ratifyWebMoney)
+        self.Bind(wx.EVT_MENU,self.pieSearch, self.uper_webinfosearch)
 
         # self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
         #输入页下拉框以及按钮的事件绑定
@@ -313,6 +388,40 @@ class frame_depart(wx.Frame):
         self.paneldetail.subbtn.Bind(wx.EVT_BUTTON,self.submitdetail)
         #项目搜索页的事件绑定
         self.panelsearch.bt.Bind(wx.EVT_BUTTON,self.submitsearch)
+
+    def yubeidui(self):
+        searchWebName = "select FatherWeb from bridgeinfo GROUP by FatherWeb"
+        WebNames = exe(searchWebName)
+        for i in WebNames:
+            for j in i:
+                search = "select COUNT(QualityLevel), QualityLevel,FatherWeb from bridgeinfo WHERE FatherWeb='%s' GROUP BY QualityLevel"%j
+                result = exe(search)
+                self.sumnumber = 0
+                self.sumnumber = reduce(lambda x,y:x+y,[z[0] for z in result])
+                # make a square figure and axes
+                plt.figure(1, figsize=(4.7,4.7))
+                ax = plt.axes([0.1, 0.1, 0.8, 0.8])
+
+                # labels = ['A', 'B', 'C', 'D']
+                # fracs = [result[0][0], result[1][0], result[2][0], result[3][0]]
+                # explode=(0, 0, 0, 0.05)       #每块间的间隔，对应到labels，既是Hogs块的间距会是0.05
+                self.labels = []
+                self.fracs = []
+                self.explode=[]
+                for z in range(len(result)):
+                    self.labels.append(chr(65+z))
+                    self.fracs.append(result[z][0])
+                    if z==3:
+                        self.explode.append(0.05)
+                    else:
+                        self.explode.append(0)
+
+                plt.pie(self.fracs, explode=self.explode, labels=self.labels, autopct='%1.1f%%', shadow=True, startangle=90,colors=['yellowgreen', 'gold', 'lightskyblue', 'red'])
+
+                plt.title(result[0][2]+u'桥梁状况\n',fontsize=16, color="red",fontproperties=font)
+                plt.xlabel(u'共有%d座桥梁'%self.sumnumber,fontproperties=font)
+                plt.savefig(".\\templates\\%d.png"%abs(hash(j)))
+                plt.close()
 
     def hideAllPanel(self):
         try:
@@ -339,6 +448,15 @@ class frame_depart(wx.Frame):
             self.panelsearch.Hide()
         except:
             pass
+        try:
+            self.panelShowWebPie.Hide()
+        except:
+            pass
+        try:
+            self.panelItemSearch.Hide()
+        except:
+            pass
+
 
 
     def writein(self , event):
@@ -598,9 +716,22 @@ class frame_depart(wx.Frame):
         self.hideAllPanel()
         self.panelRatifiWebMoney = panel_RatifyWebMoney(self)
         self.sizer.Add(self.panelRatifiWebMoney, 1 , wx.EXPAND)
-        self.panelsearch.Hide()
-        self.panelwritein.Hide()
         self.panelRatifiWebMoney.Show()
+        self.Layout()
+
+    def pieSearch(self,event):
+        self.panelShowWebPie  = panel_WebSituation(self)
+        self.sizer.Add(self.panelShowWebPie, 1 , wx.EXPAND)
+        self.hideAllPanel()
+        self.panelShowWebPie.Show()
+        self.Layout()
+
+    def searchitemhis(self,event):
+        self.hideAllPanel()
+        self.panelItemSearch = panel_ItemSituation(self)
+        self.sizer.Add(self.panelItemSearch, 1 , wx.EXPAND)
+
+        self.panelItemSearch.Show()
         self.Layout()
 
 app = wx.App()
