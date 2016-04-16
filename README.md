@@ -1,5 +1,5 @@
-"""
-  BIMS（bridge information manage system）：桥梁信息管理系统
+
+BIMS（bridge information manage system）：桥梁信息管理系统
 
 
 环境：
