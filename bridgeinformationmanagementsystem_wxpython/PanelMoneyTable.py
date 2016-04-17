@@ -22,6 +22,7 @@ class panel_MoneyTable(wx.Panel):
             self.griddetail.SetCellValue(0,0,result[i][0])
             self.griddetail.SetCellValue(0,1,result[i][7])
             self.griddetail.SetCellValue(0,2,result[i][8])
+            self.griddetail.SetDefaultCellOverflow(True)
             mylist = ['批准','驳回']
             self.choice = wx.Choice(self, -1, choices = mylist,pos = (650,300),size=(100,50),name = "第%d条申报信息"%i)
             self.choice.Bind(wx.EVT_CHOICE, lambda evt,mark=i,choice=self.choice:self.changewhichone(evt,mark,choice))

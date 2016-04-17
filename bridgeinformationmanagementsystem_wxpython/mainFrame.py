@@ -11,11 +11,13 @@ from PanelLineSearch import panel_ItemSituation
 from PanelWriteIn import panel_writein, panel_detail
 from PanelSearch import panel_search
 from PanelShowSearchResult import panel_searchResultShow
+from PanelGIS import Panel_gis
 
 #软件主界面
 class frame_depart(wx.Frame):
-    def __init__(self):
+    def __init__(self,id):
         wx.Frame.__init__(self,None, title = "桥梁信息管理系统")
+        self.id = id
         t = threading.Thread(target=self.yubeidui)
         t.start()
         #桥梁信息输入那里有两个界面，有两个函数，导致变量不能共享，故在此初始化。待解决，应该用一个函数，这样占内存小一点
@@ -42,6 +44,7 @@ class frame_depart(wx.Frame):
         self.bumem_importimage.Enable(False)
         self.bumen_writein = filemenu.Append(wx.ID_ABOUT, "录入"," 正在录入 ")
         self.bumem_search = filemenu.Append(wx.ID_HELP_SEARCH, "项目检索"," 查询项目级桥梁信息 ")
+        self.bumem_gis = filemenu.Append(wx.ID_PREVIEW_GOTO, "GIS查看","地图查看桥梁信息")
         self.uper_SearchItemHis = upermenu.Append(wx.ID_EDIT, "单项桥梁历史纪录", "查看单项桥梁随各时间的质量变化")
         self.uper_givemoney = upermenu.Append(wx.ID_HELP, "单项预算表查看与批示", "单项预算表查看与批示")
         self.uper_ratifyWebMoney = upermenu.Append(wx.ID_APPLY,"网级预算查看与批示","网级预算查看与批示")
@@ -80,6 +83,7 @@ class frame_depart(wx.Frame):
         #绑定菜单事件
         self.Bind(wx.EVT_MENU,self.writein, self.bumen_writein)
         self.Bind(wx.EVT_MENU,self.search, self.bumem_search)
+        self.Bind(wx.EVT_MENU,self.gis, self.bumem_gis)
         self.Bind(wx.EVT_MENU,self.searchitemhis, self.uper_SearchItemHis)
         self.Bind(wx.EVT_MENU,self.ratifyitemmoney, self.uper_givemoney)
         self.Bind(wx.EVT_MENU,self.ratifyWebMoney, self.uper_ratifyWebMoney)
@@ -127,6 +131,14 @@ class frame_depart(wx.Frame):
 
     def hideAllPanel(self):
         #由于其中有些实例是在hide时没有的，若用列表循环隐藏会出现报实例不存在的错误，待解决
+        # allpanels = [self.panelshowsearchresult,self.panelMoneyTable, self.paneldetail,self.panelRatifiWebMoney,self.panelwritein,self.panelsearch,self.panelShowWebPie,self.panelItemSearch,self.panelgis]
+        #
+        # for i in range(len(allpanels)):
+        #     try:
+        #         allpanels[i].Hide()
+        #     except:
+        #         pass
+
         try:
             self.panelshowsearchresult.Hide()
         except:
@@ -157,6 +169,10 @@ class frame_depart(wx.Frame):
             pass
         try:
             self.panelItemSearch.Hide()
+        except:
+            pass
+        try:
+            self.panelgis.Hide()
         except:
             pass
 
@@ -299,6 +315,13 @@ class frame_depart(wx.Frame):
 
         shutil.copyfile(self.absoluteimageroute,r"templates\%s\%s"%(abs(hash(self.routestring)),self.filename))
 
+    def gis(self,event):
+        self.hideAllPanel()
+        self.panelgis = Panel_gis(self)
+        self.sizer.Add(self.panelgis, 1 , wx.EXPAND)
+        self.panelgis.Show()
+        self.Layout()
+
     def search(self,event):
         self.hideAllPanel()
         self.panelsearch.Show()
@@ -371,15 +394,12 @@ class frame_depart(wx.Frame):
         self.infoaboutnum = wx.StaticText(self,-1,"这是第%d条数据"%(self.rank+1), pos=(650,550))
 
         for i in range(10):
-            # if i == 2:
-            #     self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
-            #     self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i].strftime('%Y-%m-%d'))
             if not self.result[self.rank][i]:
                 self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
                 self.panelshowsearchresult.griddetail.SetCellValue(i,1,"")
-            elif not isinstance(self.result[self.rank][i],unicode):
-                self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
-                self.panelshowsearchresult.griddetail.SetCellValue(i,1,str(self.result[self.rank][i]))
+            # elif not isinstance(self.result[self.rank][i],unicode):           #对于float等型数据
+            #     self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
+            #     self.panelshowsearchresult.griddetail.SetCellValue(i,1,str(self.result[self.rank][i]))
             else:
                 self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
                 self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i])
@@ -394,6 +414,10 @@ class frame_depart(wx.Frame):
         search = "select * from bridgeinfo WHERE WhetherDeclare = '%s' ORDER BY DetectTime"%u"是"
         self.result_money = MySqlUnit.exe_search(search)[:8]
         self.panelMoneyTable = panel_MoneyTable(self,self.result_money)
+        if self.id == 'bumen':
+            for i in range(8):
+                facebtn = self.panelMoneyTable.FindWindowByName("第%d条申报信息"%i)
+                facebtn.Enable(False)
         self.sizer.Add(self.panelMoneyTable, 1 , wx.EXPAND)
         self.panelMoneyTable.Show()
         self.Layout()
@@ -401,6 +425,15 @@ class frame_depart(wx.Frame):
     def ratifyWebMoney(self,event):
         self.hideAllPanel()
         self.panelRatifiWebMoney = panel_RatifyWebMoney(self)
+        if self.id == 'bumen' or 'shiji':
+            for i in range(8):
+                try:
+                    facebtn = self.panelRatifiWebMoney.FindWindowByName("第%d个按钮"%i)
+                    faceinpt = self.panelRatifiWebMoney.FindWindowByName("第%d个网络"%i)
+                    facebtn.Enable(False)
+                    faceinpt.Enable(False)
+                except:
+                    pass
         self.sizer.Add(self.panelRatifiWebMoney, 1 , wx.EXPAND)
         self.panelRatifiWebMoney.Show()
         self.Layout()

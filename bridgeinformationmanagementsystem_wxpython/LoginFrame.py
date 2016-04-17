@@ -11,7 +11,7 @@ class panel_login(wx.Panel):
         wx.Panel.__init__(self,parent=parent)
         self.gs = wx.GridSizer(4,2,5,5)
         self.label_1 = wx.StaticText( self, -1, 'login as:')
-        mylist = ['省级','市级','检测部门','访客']
+        mylist = ['省级','市级','检测部门']
         self.choice = wx.Choice(self, -1, choices = mylist,)
         self.label_2 = wx.StaticText(self,-1,"name:")
         self.input_2 = wx.TextCtrl(self, -1)
@@ -34,22 +34,23 @@ class frame_login(wx.Frame):
 
     def OnCheck(self,event):
         self.ID = self.login.choice.GetStringSelection()
-        if self.ID == u"访客":
-            self.login.input_2.SetValue("visitor")
-            self.login.input_3.SetValue("123")
 
     def OnButton(self,event):
         self.name = str(self.login.input_2.GetValue())
         self.passwd = str(self.login.input_3.GetValue())
         if self.name == "bumen" and self.passwd == "123" and self.ID == u"检测部门":
-            depart = frame_depart()
-            self.Hide()
-            depart.Show()
-            depart.Maximize()
+            depart = frame_depart('bumen')
+        elif self.name == 'shiji' and self.passwd == '123':
+            depart = frame_depart('shiji')
+        elif self.name == 'shengji' and self.passwd == '123':
+            depart = frame_depart('shengji')
         else:
             self.dialogue = wx.Dialog(self,-1,"提示框",size = (200,150))
             self.errorlabel = wx.StaticText(self.dialogue,-1,"\n\n您输入的用户名或密码有误\n请输入正确的用户名与密码\n如果没有请选用访客模式",style = wx.ALIGN_CENTER)
             self.dialogue.ShowModal()
+        self.Hide()
+        depart.Show()
+        depart.Maximize()
 
 genLinePic()
 app = wx.App()
