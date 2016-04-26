@@ -2,7 +2,7 @@
 import wx
 import wx.grid as gridlib
 class panel_searchResultShow(wx.Panel):
-    def __init__(self,parent,amount=0):
+    def __init__(self, parent,amount=0, bridgename=u"西直门桥"):
         wx.Panel.__init__(self,parent=parent)
         self.griddetail = gridlib.Grid(self)
         self.griddetail.CreateGrid(20,5,)
@@ -17,6 +17,11 @@ class panel_searchResultShow(wx.Panel):
         self.advicenum = wx.StaticText(self,-1,"在下面输入要跳转到的条数")
         # self.numinfo2 = wx.StaticText(self,-1,"跳转到")
         self.which2see = wx.TextCtrl(self, -1, value="1")
+        self.rankinfo = wx.StaticText(self,-1,"这是第1条数据")
+        self.rankinfo.SetBackgroundColour('gray')
+        self.rankinfo.SetForegroundColour('white')
+        self.seebtn = wx.Button(self,-1,label = '查看地图')
+        self.wordPDF = wx.Button(self,-1,label = '存为word并打印')
         # self.numinfo3 = wx.StaticText(self,-1,"条")
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.subbtn, 0, wx.CENTER)
@@ -24,4 +29,7 @@ class panel_searchResultShow(wx.Panel):
         sizer.Add(self.numinfo, 0, wx.CENTER)
         sizer.Add(self.advicenum, 0, wx.CENTER)
         sizer.Add(self.which2see, 0, wx.CENTER)
+        sizer.Add(self.rankinfo, 0, wx.CENTER)
+        sizer.Add(self.seebtn, 0, wx.CENTER)
+        sizer.Add(self.wordPDF, 0, wx.CENTER)
         self.SetSizer(sizer)

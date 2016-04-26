@@ -1,5 +1,6 @@
 #coding:gbk
 import wx, xlwt, xlrd, os, shutil, threading
+from selenium import webdriver
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
 font = FontProperties(fname=r"c:\windows\Fonts\simsun.ttc",size=11)
@@ -12,6 +13,7 @@ from PanelWriteIn import panel_writein, panel_detail
 from PanelSearch import panel_search
 from PanelShowSearchResult import panel_searchResultShow
 from PanelGIS import Panel_gis
+from SaveDocAndPDF import savedocpdf
 
 #软件主界面
 class frame_depart(wx.Frame):
@@ -335,7 +337,7 @@ class frame_depart(wx.Frame):
             self.dialogue_info = wx.Dialog(self,-1,"提示框",size = (300,150),pos=(600,300))
             self.errorlabel_info = wx.StaticText(self.dialogue_info,-1,"\n\n桥名和检测类型\n不能留空",style = wx.ALIGN_CENTER)
             self.dialogue_info.ShowModal()
-        if self.search_detectime == "":
+        if self.search_detectime != "":
             # self.dicthelp = {"日常检查":"normal","定期检测":"regular","特殊检测":"special"}
             search = "select * from bridgeinfo WHERE BridgeName = '%s' AND DetectType = '%s' AND detecttime LIKE '%s%%'" % (self.search_bridgename,self.search_detecttype,self.search_detectime)
         else:
@@ -346,7 +348,7 @@ class frame_depart(wx.Frame):
             self.errorlabel_info = wx.StaticText(self.dialogue_info,-1,"\n\n并没有相关数据\n请检查输入",style = wx.ALIGN_CENTER)
             self.dialogue_info.ShowModal()
         else:
-            self.panelshowsearchresult = panel_searchResultShow(self,len(self.result))
+            self.panelshowsearchresult = panel_searchResultShow(self,len(self.result),bridgename= self.search_bridgename)
             self.panelshowsearchresult.Hide()
             self.sizer.Add(self.panelshowsearchresult, 1 , wx.EXPAND)
             self.panelsearch.Hide()
@@ -362,7 +364,7 @@ class frame_depart(wx.Frame):
             except:
                 self.rank = 0
 
-            self.infoaboutnum = wx.StaticText(self,-1,"这是第%d条数据"%(self.rank+1), pos=(650,550))
+            self.panelshowsearchresult.SetLabel( "这是第%d条数据"%(self.rank+1))
 
             for i in range(10):
                 # if i == 2:
@@ -381,6 +383,9 @@ class frame_depart(wx.Frame):
 
             self.Bind(wx.EVT_TEXT,self.OnEnter,self.panelshowsearchresult.which2see)
             self.Bind(wx.EVT_BUTTON,self.SeeDetailSearchResult,self.panelshowsearchresult.subbtn)
+            self.Bind(wx.EVT_BUTTON,lambda evt,item=self.search_bridgename:self.SeeMap(evt,item),self.panelshowsearchresult.seebtn)
+            self.Bind(wx.EVT_BUTTON,lambda evt,ToFile=(self.search_detectime+self.search_bridgename+self.search_detecttype):self.SavePrint(evt,ToFile),self.panelshowsearchresult.wordPDF)
+            # self.choice.Bind(wx.EVT_CHOICE, lambda evt,mark=i,choice=self.choice:self.changewhichone(evt,mark,choice))
 
     def OnEnter(self,event):
         self.transferTo = self.panelshowsearchresult.which2see.GetValue()
@@ -391,15 +396,12 @@ class frame_depart(wx.Frame):
         except:
             self.rank = 0
 
-        self.infoaboutnum = wx.StaticText(self,-1,"这是第%d条数据"%(self.rank+1), pos=(650,550))
+        self.panelshowsearchresult.rankinfo.SetLabelText("这是第%d条数据"%(self.rank+1))
 
         for i in range(10):
             if not self.result[self.rank][i]:
                 self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
                 self.panelshowsearchresult.griddetail.SetCellValue(i,1,"")
-            # elif not isinstance(self.result[self.rank][i],unicode):           #对于float等型数据
-            #     self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
-            #     self.panelshowsearchresult.griddetail.SetCellValue(i,1,str(self.result[self.rank][i]))
             else:
                 self.panelshowsearchresult.griddetail.SetCellValue(i,0,self.dbpara[i])
                 self.panelshowsearchresult.griddetail.SetCellValue(i,1,self.result[self.rank][i])
@@ -407,7 +409,6 @@ class frame_depart(wx.Frame):
     def SeeDetailSearchResult(self,event):
         self.detailNum = int(self.panelshowsearchresult.which2see.GetValue())
         os.startfile( os.getcwd()+"\\templates\\"+ self.result[self.detailNum-1][10])
-
 
     def ratifyitemmoney(self,event):
         self.hideAllPanel()
@@ -421,6 +422,25 @@ class frame_depart(wx.Frame):
         self.sizer.Add(self.panelMoneyTable, 1 , wx.EXPAND)
         self.panelMoneyTable.Show()
         self.Layout()
+
+    def SeeMap(self,event,item):
+        driver = webdriver.Chrome()
+        driver.get(r'http://map.baidu.com/')
+        # <input id="sole-input" class="searchbox-content-common" type="text" name="word" autocomplete="off" maxlength="256" placeholder="搜地点、查公交、找路线" value="">
+        sousuo = driver.find_element_by_id('sole-input')
+        sousuo.send_keys(item)
+        # <button id="search-button" data-title="搜索" data-tooltip="1"></button>
+        clicli = driver.find_element_by_id('search-button')
+        clicli.click()
+
+    def SavePrint(self,event,ToFile):
+        self.detailNum = int(self.panelshowsearchresult.which2see.GetValue())
+        # os.startfile( os.getcwd()+"\\templates\\"+ self.result[self.detailNum-1][10])
+        oriroute = os.getcwd()+"\\templates\\"+ self.result[self.detailNum-1][10]
+        toroute = r'C:\Users\Administrator\Desktop\%s'%ToFile
+        shutil.copytree(oriroute, toroute)
+        savedocpdf(oriroute,toroute)
+
 
     def ratifyWebMoney(self,event):
         self.hideAllPanel()

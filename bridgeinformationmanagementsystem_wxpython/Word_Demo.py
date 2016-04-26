@@ -1,44 +1,23 @@
+#coding:utf-8
 import win32com
-from win32com.client import Dispatch, constants
-w = win32com.client.Dispatch('Word.Application')
-# »òÕßÊ¹ÓÃÏÂÃæµÄ·½·¨£¬Ê¹ÓÃÆô¶¯¶ÀÁ¢µÄ½ø³Ì£º
-# w = win32com.client.DispatchEx('Word.Application')
-# ºóÌ¨ÔËĞĞ£¬²»ÏÔÊ¾£¬²»¾¯¸æ
+from win32com.client import constants
+
+# w = win32com.client.Dispatch('Word.Application')
+# æˆ–è€…ä½¿ç”¨ä¸‹é¢çš„æ–¹æ³•ï¼Œä½¿ç”¨å¯åŠ¨ç‹¬ç«‹çš„è¿›ç¨‹ï¼š
+w = win32com.client.DispatchEx('Word.Application')
+# åå°è¿è¡Œï¼Œä¸æ˜¾ç¤ºï¼Œä¸è­¦å‘Š
 w.Visible = 0
 w.DisplayAlerts = 0
-# ´ò¿ªĞÂµÄÎÄ¼ş
-doc = w.Documents.Open( FileName = filenamein )
-# worddoc = w.Documents.Add() # ´´½¨ĞÂµÄÎÄµµ
-# ²åÈëÎÄ×Ö
+# æ‰“å¼€æ–°çš„æ–‡ä»¶
+# doc = w.Documents.Open( FileName = u"C:\\Users\\Administrator\\Desktop\\pd2.docx" )
+doc = w.Documents.Add() # åˆ›å»ºæ–°çš„æ–‡æ¡£
+# æ’å…¥æ–‡å­—
 myRange = doc.Range(0,0)
-myRange.InsertBefore('Hello from Python!')
-# Ê¹ÓÃÑùÊ½
-wordSel = myRange.Select()
-wordSel.Style = constants.wdStyleHeading1
-# ÕıÎÄÎÄ×ÖÌæ»»
-w.Selection.Find.ClearFormatting()
-w.Selection.Find.Replacement.ClearFormatting()
-w.Selection.Find.Execute(OldStr,False,False,False,False,False,True,1,True,NewStr,2)
-# Ò³Ã¼ÎÄ×ÖÌæ»»
-w.ActiveDocument.Sections[0].Headers[0].Range.Find.ClearFormatting()
-w.ActiveDocument.Sections[0].Headers[0].Range.Find.Replacement.ClearFormatting()
-w.ActiveDocument.Sections[0].Headers[0].Range.Find.Execute(OldStr,False,False,False,False,False,True,1,False,NewStr,2)
-# ±í¸ñ²Ù×÷
-doc.Tables[0].Rows[0].Cells[0].Range.Text ='123123'
-worddoc.Tables[0].Rows.Add() # Ôö¼ÓÒ»ĞĞ
-# ×ª»»Îªhtml
-wc = win32com.client.constants
-w.ActiveDocument.WebOptions.RelyOnCSS = 1
-w.ActiveDocument.WebOptions.OptimizeForBrowser = 1
-w.ActiveDocument.WebOptions.BrowserLevel = 0 # constants.wdBrowserLevelV4
-w.ActiveDocument.WebOptions.OrganizeInFolder = 0
-w.ActiveDocument.WebOptions.UseLongFileNames = 1
-w.ActiveDocument.WebOptions.RelyOnVML = 0
-w.ActiveDocument.WebOptions.AllowPNG = 1
-w.ActiveDocument.SaveAs( FileName = filenameout, FileFormat = wc.wdFormatHTML )
-# ´òÓ¡£¬×¢£º´Ë´òÓ¡ÄÜ¹»Ìø³öÑ¡Ôñ±£´æÎªµÄ¸ñÊ½£¬²¢ÇÒÄ¬ÈÏÎªPDF
+myRange.InsertBefore('take or add??\njello\nkitty')
+
+doc.SaveAs( r"C:\Users\Administrator\Desktop\pd3.docx" )
+# æ‰“å°ï¼Œæ³¨ï¼šæ­¤æ‰“å°èƒ½å¤Ÿè·³å‡ºé€‰æ‹©ä¿å­˜ä¸ºçš„æ ¼å¼ï¼Œå¹¶ä¸”é»˜è®¤ä¸ºPDF
 doc.PrintOut()
-# ¹Ø±Õ
-# doc.Close()
-w.Documents.Close(wc.wdDoNotSaveChanges)
+
+doc.Close()
 w.Quit()
