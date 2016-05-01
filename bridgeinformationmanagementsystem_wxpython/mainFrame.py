@@ -1,5 +1,5 @@
 #coding:gbk
-import wx, xlwt, xlrd, os, shutil, threading
+import wx, xlwt, xlrd, os, shutil, threading, chardet
 from selenium import webdriver
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
@@ -14,6 +14,7 @@ from PanelSearch import panel_search
 from PanelShowSearchResult import panel_searchResultShow
 from PanelGIS import Panel_gis
 from SaveDocAndPDF import savedocpdf
+from PanelIndexPic import Panel_IndexPic
 
 #软件主界面
 class frame_depart(wx.Frame):
@@ -24,7 +25,7 @@ class frame_depart(wx.Frame):
         t.start()
         #桥梁信息输入那里有两个界面，有两个函数，导致变量不能共享，故在此初始化。待解决，应该用一个函数，这样占内存小一点
         self.routestring,self.mainbroken,self.askmoney,self.reason4askmoney,self.bridgename,self.detecttime,self.detecttype,self.parentWeb,self.bridgerate = ["","","","","","","","",""]
-        self.search_bridgename,self.search_detecttype,self.search_detectime,self.result = ["","","",""]
+        self.search_bridgename,self.search_detecttype,self.search_detectime,self.result,self.detectdetailtype = ["","","","",""]
 
         self.menubarOutLook()   #完成主界面菜单部分的外观显示
 
@@ -61,7 +62,6 @@ class frame_depart(wx.Frame):
         menuBar.Append(helpmenu,"帮助")
         self.SetMenuBar(menuBar)             #将菜单栏放入Frame
 
-
     def preMainSizer(self):
         self.panelwritein = panel_writein(self)
         self.panelwritein.Hide()
@@ -69,6 +69,7 @@ class frame_depart(wx.Frame):
         self.paneldetail.Hide()
         self.panelsearch = panel_search(self)
         self.panelsearch.Hide()
+        self.panelindexpic = Panel_IndexPic(self)
         # self.panelshowsearchresult = panel_searchResultShow(self)
         # self.panelshowsearchresult.Hide()
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -76,10 +77,10 @@ class frame_depart(wx.Frame):
         self.sizer.Add(self.panelwritein, 1, wx.EXPAND)
         self.sizer.Add(self.paneldetail, 1 , wx.EXPAND)
         self.sizer.Add(self.panelsearch, 1 , wx.EXPAND)
+        self.sizer.Add(self.panelindexpic, 1 , wx.EXPAND)
         # self.sizer.Add(self.panelshowsearchresult, 1 , wx.EXPAND)
         self.SetSizer(self.sizer)
-
-
+        self.panelindexpic.Show()
 
     def bindItem(self):
         #绑定菜单事件
@@ -93,6 +94,7 @@ class frame_depart(wx.Frame):
         #输入页下拉框以及按钮的事件绑定
         self.panelwritein.choice_2.Bind( wx.EVT_CHOICE,self.choice4money )
         self.panelwritein.bt_7.Bind( wx.EVT_BUTTON,self.detailinfo )
+        self.paneldetail.choice.Bind(wx.EVT_CHOICE,self.choice4type)
         self.paneldetail.subbtn.Bind(wx.EVT_BUTTON,self.submitdetail)
         #项目搜索页的事件绑定
         self.panelsearch.bt.Bind(wx.EVT_BUTTON,self.submitsearch)
@@ -140,9 +142,12 @@ class frame_depart(wx.Frame):
         #         allpanels[i].Hide()
         #     except:
         #         pass
-
         try:
             self.panelshowsearchresult.Hide()
+        except:
+            pass
+        try:
+            self.panelindexpic.Hide()
         except:
             pass
         try:
@@ -224,6 +229,42 @@ class frame_depart(wx.Frame):
             self.bumem_importimage.Enable(True)
             self.Bind(wx.EVT_MENU,self.importimage, self.bumem_importimage)
 
+    def choice4type(self,event):
+        self.detectdetailtype = self.paneldetail.choice.GetStringSelection()
+        print self.detectdetailtype
+        self.paneldetail.griddetail.ClearGrid()
+        workbook = xlrd.open_workbook("excelmodule.xls")
+        # workbook = xlrd.open_workbook(r'templates\test1.xls')
+            #抓取所有sheet页的名称
+        worksheets = workbook.sheet_names()
+        # print('worksheets is %s' %worksheets)
+            #定位到sheet1
+        worksheet1 = workbook.sheet_by_name(self.detectdetailtype)
+        # worksheet1 = workbook.sheet_by_name(u'sheet1')
+            #遍历sheet1中所有行row
+        num_rows = worksheet1.nrows
+        for curr_row in range(num_rows):
+            row = worksheet1.row_values(curr_row)
+            # print('row%s is %s' %(curr_row,row))
+            #遍历sheet1中所有列col
+        num_cols = worksheet1.ncols
+        for curr_col in range(num_cols):
+            col = worksheet1.col_values(curr_col)
+            # print('col%s is %s' %(curr_col,col))
+            #遍历sheet1中所有单元格cell
+        for rown in range(num_rows):
+            for coln in range(num_cols):
+                cell = worksheet1.cell_value(rown,coln)
+                if isinstance(cell,unicode) or isinstance(cell,str):
+                    self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+                else:
+                    try:
+                        cell = str(worksheet1.cell_value(rown,coln))
+                        self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+                    except:
+                        pass
+
+
     def submitdetail(self,event):
         # 应该有两个参数x与y来确定输入了一个x*y的数据块
         # if self.paneldetail.griddetail.GetCellValue(3,3) is None:           #GetValue出来的是unicode
@@ -232,16 +273,16 @@ class frame_depart(wx.Frame):
         #     print "no"
         # else:
         #     print "nono"                                                     #经过实验发现是空，而不是None
-        rowflag,columnflag = 0,0
-        while self.paneldetail.griddetail.GetCellValue(rowflag,0) != "":
-            rowflag+=1
-        while self.paneldetail.griddetail.GetCellValue(0,columnflag) != "":
-            columnflag+=1
+        rowflag,columnflag = 120,30
+        # while self.paneldetail.griddetail.GetCellValue(rowflag,0) != "" and self.paneldetail.griddetail.GetCellValue(rowflag+1,0) != "":
+        #     rowflag+=1
+        # while self.paneldetail.griddetail.GetCellValue(0,columnflag) != "" and self.paneldetail.griddetail.GetCellValue(0,columnflag+1) != "":
+        #     columnflag += 1
         # print rowflag,columnflag            #实际输入区域
 
         #保存为excel
         workbook = xlwt.Workbook()
-        sheet1 = workbook.add_sheet('sheet1',cell_overwrite_ok=True)
+        sheet1 = workbook.add_sheet(self.detectdetailtype,cell_overwrite_ok=True)
         #向sheet页中写入数据
         sheet1.write(0,0,"桥名".decode("gbk"))
         sheet1.write(0,1,self.bridgename)
@@ -263,7 +304,7 @@ class frame_depart(wx.Frame):
             for j in range(columnflag):
                 sheet1.write(i+10,j,self.paneldetail.griddetail.GetCellValue(i,j))
         # 保存该excel文件,有同名文件时直接覆盖
-        workbook.save(r'templates\%s\%s.xls'%(abs(hash(self.routestring)),self.routestring))
+        workbook.save(r'templates\%s\%s.xls'%(abs(hash(self.routestring)),self.routestring+self.detectdetailtype))
 
         #插入数据库
         sql = "INSERT INTO bridgeinfo VALUES ('%s', '%s', '%s', '%s', '%s','%s','%s','%s','%s','%s','%s' )" % (self.bridgename, self.detecttype, self.detecttime, self.parentWeb, self.bridgerate,self.mainbroken,self.whethermoney,self.askmoney,self.reason4askmoney,"waiting",str(abs(hash(self.routestring))))
@@ -288,7 +329,8 @@ class frame_depart(wx.Frame):
         worksheets = workbook.sheet_names()
         # print('worksheets is %s' %worksheets)
             #定位到sheet1
-        worksheet1 = workbook.sheet_by_name(u'sheet1')
+        worksheet1 = workbook.sheet_by_name(self.detectdetailtype)
+        # worksheet1 = workbook.sheet_by_name(u'sheet1')
             #遍历sheet1中所有行row
         num_rows = worksheet1.nrows
         for curr_row in range(num_rows):
@@ -303,7 +345,20 @@ class frame_depart(wx.Frame):
         for rown in range(num_rows):
             for coln in range(num_cols):
                 cell = worksheet1.cell_value(rown,coln)
-                self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+                if isinstance(cell,unicode) or isinstance(cell,str):
+                    self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+                else:
+                    try:
+                        cell = str(worksheet1.cell_value(rown,coln))
+                        self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+                    except:
+                        pass
+                # else:
+                #     cell = str(worksheet1.cell_value(rown,coln))
+                #     self.paneldetail.griddetail.SetCellValue(rown,coln,cell)
+                # finally:
+                #     pass
+
 
     def importimage(self,event):
         #接入打开文件窗口，导入excel文件路径接口
