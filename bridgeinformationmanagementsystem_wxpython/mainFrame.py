@@ -15,9 +15,11 @@ from PanelShowSearchResult import panel_searchResultShow
 from PanelGIS import Panel_gis
 from SaveDocAndPDF import savedocpdf
 from PanelIndexPic import Panel_IndexPic
+from PanelCalculator import panel_cal
 
 #软件主界面
 class frame_depart(wx.Frame):
+    badsolutionofdupinsert = ""
     def __init__(self,id):
         wx.Frame.__init__(self,None, title = "桥梁信息管理系统")
         self.id = id
@@ -52,6 +54,7 @@ class frame_depart(wx.Frame):
         self.uper_givemoney = upermenu.Append(wx.ID_HELP, "单项预算表查看与批示", "单项预算表查看与批示")
         self.uper_ratifyWebMoney = upermenu.Append(wx.ID_APPLY,"网级预算查看与批示","网级预算查看与批示")
         self.uper_webinfosearch = upermenu.Append(wx.ID_HARDDISK,"网级项目检索","网级桥梁信息查询")
+        self.uper_cal = upermenu.Append(wx.OK,"强度验算","验算T型简支梁强度")
         self.doctment = helpmenu.Append(wx.ID_ANY,"帮助文档","查看产品说明书")
         self.callmaker = helpmenu.Append(wx.ID_FILE1,"联系作者","查看软件作者联系信息")
 
@@ -91,6 +94,7 @@ class frame_depart(wx.Frame):
         self.Bind(wx.EVT_MENU,self.ratifyitemmoney, self.uper_givemoney)
         self.Bind(wx.EVT_MENU,self.ratifyWebMoney, self.uper_ratifyWebMoney)
         self.Bind(wx.EVT_MENU,self.pieSearch, self.uper_webinfosearch)
+        self.Bind(wx.EVT_MENU,self.cal, self.uper_cal)
         #输入页下拉框以及按钮的事件绑定
         self.panelwritein.choice_2.Bind( wx.EVT_CHOICE,self.choice4money )
         self.panelwritein.bt_7.Bind( wx.EVT_BUTTON,self.detailinfo )
@@ -180,6 +184,14 @@ class frame_depart(wx.Frame):
             pass
         try:
             self.panelgis.Hide()
+        except:
+            pass
+        try:
+            self.panelcal.Hide()
+        except:
+            pass
+        try:
+            self.panelcal.showpanel.Hide()
         except:
             pass
 
@@ -273,6 +285,7 @@ class frame_depart(wx.Frame):
         #     print "no"
         # else:
         #     print "nono"                                                     #经过实验发现是空，而不是None
+
         rowflag,columnflag = 120,30
         # while self.paneldetail.griddetail.GetCellValue(rowflag,0) != "" and self.paneldetail.griddetail.GetCellValue(rowflag+1,0) != "":
         #     rowflag+=1
@@ -306,9 +319,13 @@ class frame_depart(wx.Frame):
         # 保存该excel文件,有同名文件时直接覆盖
         workbook.save(r'templates\%s\%s.xls'%(abs(hash(self.routestring)),self.routestring+self.detectdetailtype))
 
-        #插入数据库
-        sql = "INSERT INTO bridgeinfo VALUES ('%s', '%s', '%s', '%s', '%s','%s','%s','%s','%s','%s','%s' )" % (self.bridgename, self.detecttype, self.detecttime, self.parentWeb, self.bridgerate,self.mainbroken,self.whethermoney,self.askmoney,self.reason4askmoney,"waiting",str(abs(hash(self.routestring))))
-        MySqlUnit.exe_update(sql)
+        if frame_depart.badsolutionofdupinsert != self.bridgename:
+            #插入数据库
+            sql = "INSERT INTO bridgeinfo VALUES ('%s', '%s', '%s', '%s', '%s','%s','%s','%s','%s','%s','%s' )" % (self.bridgename, self.detecttype, self.detecttime, self.parentWeb, self.bridgerate,self.mainbroken,self.whethermoney,self.askmoney,self.reason4askmoney,"waiting",str(abs(hash(self.routestring))))
+            MySqlUnit.exe_update(sql)
+            frame_depart.badsolutionofdupinsert = self.bridgename
+        else:
+            print 'get here'
 
 
     def importfile(self,event):
@@ -525,4 +542,11 @@ class frame_depart(wx.Frame):
         self.panelItemSearch = panel_ItemSituation(self)
         self.sizer.Add(self.panelItemSearch, 1 , wx.EXPAND)
         self.panelItemSearch.Show()
+        self.Layout()
+
+    def cal(self,event):
+        self.hideAllPanel()
+        self.panelcal = panel_cal(self)
+        self.sizer.Add(self.panelcal, 1 , wx.EXPAND)
+        self.panelcal.Show()
         self.Layout()
